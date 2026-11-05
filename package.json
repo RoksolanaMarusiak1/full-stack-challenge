@@ -6,6 +6,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "e2e": "pnpm --filter web e2e",
     "db:migrate": "pnpm --filter @url-shortener/engine db:migrate",
     "db:generate": "pnpm --filter @url-shortener/engine db:generate",
     "clean": "turbo run clean && rm -rf .turbo",

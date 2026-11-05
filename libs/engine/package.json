@@ -10,7 +10,9 @@
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -19,7 +21,8 @@
     "@types/node": "^22.19.7",
     "@types/pg": "8.23.1",
     "drizzle-kit": "0.31.11",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "5.1.0"
   },
   "dependencies": {
     "drizzle-orm": "0.45.4",

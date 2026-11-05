@@ -6,6 +6,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
+    "db:migrate": "pnpm --filter @url-shortener/engine db:migrate",
+    "db:generate": "pnpm --filter @url-shortener/engine db:generate",
     "clean": "turbo run clean && rm -rf .turbo",
     "clean:deep": "pnpm run clean && pnpm -r exec rm -rf node_modules && rm -rf node_modules"
   },

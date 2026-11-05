@@ -50,12 +50,29 @@ How the work is done: Claude writes the code into my local clone and checks it (
   - Short codes are generated securely and collisions are handled without a race condition.
 - AI usage: Claude proposed and wrote the layering and the retry approach; I tested it in the browser and committed it.
 
+## Step 4: Postgres + Drizzle
+- What I did:
+  - `infrastructure/db/schema.ts`: `links` table (`code` is the primary key, `url`, `clicks`, `created_at`, index on `created_at`). `client.ts` creates the pg pool + Drizzle instance.
+  - `DrizzleLinkRepository` implements `LinkRepository`; `index.ts` now wires it into `LinkService` (one-line swap, as planned). The in-memory repository stays for tests.
+  - SQL migration generated with `drizzle-kit generate` (`libs/engine/drizzle`) and applied with `drizzle-kit migrate` (`pnpm db:migrate`).
+  - `docker-compose.yml`: `db` (Postgres 16 with healthcheck) -> `migrate` (one-shot job) -> `web`; data lives in a named volume so it survives restarts. Dockerfile copies the migrations and config into the production image.
+  - `/links` revalidates its data when the tab regains focus (short links open in a new tab, so the click counts were stale) and has a Refresh button.
+  - `.env.example` has `DATABASE_URL`; `vite.config.ts` loads `.env` into `process.env` so server code sees it in dev.
+- Why:
+  - Code as primary key: uniqueness is enforced by the database, so the service's retry-on-duplicate is race-free (unique violation `23505` -> `CodeAlreadyExistsError`).
+  - Click counter is one atomic `UPDATE ... SET clicks = clicks + 1`, not read-then-write, so parallel clicks are not lost.
+  - Migrations are a separate compose job instead of running at app startup: explicit, runs once, and the app does not start on a broken schema.
+  - `pg` and `drizzle-orm` are also listed in the web package: web bundles the engine source, so these imports are resolved from web at runtime in the production build.
+- Trade-offs / skipped: no connection-pool tuning, no down-migrations, credentials in compose are dev-only defaults.
+- Checked: type check passes; on a real Postgres 16 I applied the migration and ran the repository: duplicate code -> `CodeAlreadyExistsError`, 50 parallel `resolve` calls -> exactly 50 clicks, unknown code -> `LinkNotFoundError`, list is newest first. The Docker setup itself still has to be verified end to end (done in the last step).
+- AI usage: Claude wrote the schema, repository, compose setup and verified them against a temporary Postgres; I run the migration and commit.
+
 ## Plan (status)
 
 - [x] Baseline and audit
 - [x] UI components (step 2)
 - [x] Engine: `LinkRepository` + `LinkService`, collision-safe code generation (step 3)
-- [ ] Postgres + Drizzle, migrations, docker-compose with healthcheck
+- [x] Postgres + Drizzle, migrations, docker-compose with healthcheck (step 4)
 - [ ] Validation (Zod) and abuse prevention (rate limiting)
 - [ ] Error handling in the action and meaningful messages in the UI
 - [ ] Tests (Vitest) for LinkService

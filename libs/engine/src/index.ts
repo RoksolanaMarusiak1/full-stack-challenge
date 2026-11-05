@@ -10,12 +10,23 @@ export {
 export { LinkService } from "./link-service";
 export { generateShortCode } from "./code-generator";
 export { InMemoryLinkRepository } from "./infrastructure/in-memory-link-repository";
+export { DrizzleLinkRepository } from "./infrastructure/drizzle-link-repository";
 
-import { InMemoryLinkRepository } from "./infrastructure/in-memory-link-repository";
+import { createDb, type Database } from "./infrastructure/db/client";
+import { DrizzleLinkRepository } from "./infrastructure/drizzle-link-repository";
 import { LinkService } from "./link-service";
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not set (see .env.example)");
+}
+
+// Keep one connection pool across dev hot reloads instead of opening a new one each time.
+const globalForDb = globalThis as typeof globalThis & { __linksDb?: Database };
+const db = (globalForDb.__linksDb ??= createDb(connectionString));
 
 /**
  * Composition root: the single place that chooses the storage.
- * Swapping to Postgres later is a one-line change here.
+ * The service only knows the LinkRepository interface.
  */
-export const linkService = new LinkService(new InMemoryLinkRepository());
+export const linkService = new LinkService(new DrizzleLinkRepository(db));

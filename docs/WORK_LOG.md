@@ -156,3 +156,29 @@ How the work is done: Claude writes the code into my local clone and checks it (
 - [x] End-to-end tests with Playwright (step 7)
 - [x] Docker verification from scratch, README Docker Setup (step 8)
 - [x] CHALLENGE_SUBMISSION.md
+- [x] Extra time: design, theme toggle, copy buttons (after the main task)
+
+## Extra time: design and polish (00:08 to about 00:55)
+
+Everything required was already done and committed before this section (see "Main task finished" at the top). This part is optional polish.
+
+- What I did:
+  - Design: I used the visual style I had already made for my own LinkedIn carousels (warm paper background, wine-colored text, one crimson accent, Space Grotesk for text and JetBrains Mono for labels, links and counters). Claude moved it into code as theme tokens in `app.css` (Tailwind variables), so components only use semantic names (`paper`, `card`, `ink`, `accent`) and never raw colors.
+  - Light and dark theme with a toggle in the header. Light is the default (it does not follow the system setting); the choice is saved in `localStorage`, and a tiny inline script in `<head>` applies it before the first paint so the page does not flash.
+  - Animated background: three blurred color blobs drifting slowly. Only `transform` is animated, and the animation is switched off when the system asks for reduced motion.
+  - Buttons: gradient, soft glow, small lift on hover and press feedback; soft glow on the focused input and on the result card.
+  - Links page: a Copy icon button next to every link (new `CopyButton` component, shared with the result on the home page), wider layout so the table does not scroll on desktop, and a fixed date format (`en-GB`, UTC) so the server and the browser render the same text and React does not warn about hydration.
+- Why: the first version looked generic; a consistent look makes the app easier to judge. The theme uses CSS variables so adding or changing a theme does not touch the components.
+- Checked: `pnpm typecheck`, 54 unit tests, production build and all 10 E2E tests pass with the new design (run on a clean copy with a real Postgres). Claude also looked at screenshots of both pages in both themes, and I checked the pages in the browser.
+- Trade-offs / skipped: no automated visual or accessibility tests; the text and accent colors were checked by calculating contrast (the accent used for text is a darker shade than the decorative one), not with a tool; the table is horizontally scrollable on narrow screens instead of becoming cards.
+- AI usage: the style is mine, Claude implemented it. I looked at each change in the browser and corrected the details (below).
+
+Where I steered during this part:
+
+- Asked to remove the numbered labels ("01", "02") above the headings.
+- Noticed the short link result was a dark block in the light theme and asked to make it light.
+- Asked for light to be the default theme and for a manual toggle, and said that near-black text did not fit the palette (it is now a wine color).
+- Saw a blue focus outline on the input (the browser default) next to my own focus style; it was removed.
+- Asked for the animated blobs to move faster and to reach the corners of the screen.
+- Asked for a Copy button on the links page, and for an icon instead of the word.
+- Saw that the Copy button was missing on the links page; the cause was the table being wider than the page, so it was moved next to the link and the page was widened.

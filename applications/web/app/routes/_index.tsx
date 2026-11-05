@@ -53,8 +53,8 @@ export default function Index() {
 
   return (
     <Layout>
-      <h1 className="text-3xl font-bold tracking-tight">Shorten a link</h1>
-      <p className="mt-2 text-gray-600 dark:text-gray-400">
+      <h1 className="text-4xl font-bold tracking-tight">Shorten a link</h1>
+      <p className="mt-3 text-ink-soft">
         Turn a long URL into a short one you can share.
       </p>
       <Card className="mt-6">

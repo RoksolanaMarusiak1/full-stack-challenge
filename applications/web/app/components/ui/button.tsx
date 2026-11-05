@@ -4,11 +4,10 @@ type Variant = "primary" | "secondary" | "ghost";
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:outline-indigo-600 disabled:bg-indigo-400",
+    "bg-linear-to-b from-primary to-primary-strong text-white shadow-[0_6px_16px_-6px_var(--primary)] hover:-translate-y-px hover:shadow-[0_10px_22px_-6px_var(--primary)] focus-visible:outline-accent",
   secondary:
-    "bg-white text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-100 dark:ring-gray-700 dark:hover:bg-gray-700",
-  ghost:
-    "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
+    "bg-paper text-ink ring-1 ring-inset ring-line hover:-translate-y-px hover:bg-card hover:shadow-[0_6px_16px_-8px_var(--ink-muted)] focus-visible:outline-accent",
+  ghost: "text-ink-soft hover:bg-card hover:text-ink focus-visible:outline-accent",
 };
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -24,7 +23,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition duration-150 active:translate-y-0 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:translate-y-0 disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100 ${variants[variant]} ${className}`}
       {...props}
     />
   );

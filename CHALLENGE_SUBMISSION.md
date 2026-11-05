@@ -17,7 +17,7 @@
 
 I started with an audit of the template: in-memory `Map` storage, 2-character short codes (only 9 possible codes, collisions overwrote links), no validation, an open redirect, no click tracking, no tests and no database in Docker. Then I rebuilt it in small steps, each one committed separately (the full reasoning is in `docs/WORK_LOG.md`).
 
-- **UI:** small reusable components (`Button`, `Input`, `Card`, `UrlForm`, `ShortUrlResult`, `LinksTable`) instead of one big route. The form shows inline errors and a loading state; `/links` shows every link with its click count and refreshes when the tab regains focus.
+- **UI:** small reusable components (`Button`, `Input`, `Card`, `UrlForm`, `ShortUrlResult`, `LinksTable`) instead of one big route. The form shows inline errors and a loading state; `/links` shows every link with its click count and refreshes when the tab regains focus. As extra work after the required scope, I added my own warm visual style with a light/dark toggle (light by default), an animated background that respects reduced motion, and a copy button for each link.
 - **Architecture:** `libs/engine` is split into domain (`Link`, `LinkRepository`, errors), `LinkService` and infrastructure (Drizzle and in-memory repositories). The service depends only on the repository interface. Routes stay thin.
 - **Persistence:** Postgres with Drizzle and migrations. The short code is the primary key, so uniqueness is enforced by the database and the service retries on a unique violation instead of check-then-insert. Clicks use one atomic `UPDATE ... SET clicks = clicks + 1`.
 - **Abuse prevention:** Zod validation (http/https only, no credentials in the URL, no localhost/private/link-local/IPv6 hosts, length checked after normalisation) and a sliding-window rate limiter: 20 creations/min and 120 redirects/min per client, with `429` and `Retry-After`. The limiter mechanism lives in the engine, the policy (limits, how the client is identified) in the web app.
@@ -47,6 +47,8 @@ Example prompts:
 - "Why do you postpone the E2E tests until after Docker? Would the Docker setup really take more than an hour? I would rather do them as part of the testing step."
 
 Where I steered or corrected it: I asked it to cut an over-engineered first plan down to the essentials; I rejected its commits and made my own history; I found that click counts did not refresh after opening a short link; my question about the length limit exposed a real bug (the length was checked before normalisation, so a long Cyrillic URL passed); the unit test run showed every test twice, which led to a Vitest config fix; and I chose to do the E2E tests earlier than Claude proposed. Claude's tests also found a bug of its own: a 429 response without `Retry-After`.
+
+The visual style (palette, fonts, look of the cards and labels) comes from my own LinkedIn carousel designs; Claude only moved it into code as theme tokens and components, and I checked and corrected the result in the browser.
 
 What I did not delegate: choosing the scope and the order of work, deciding which validation rules are acceptable, reviewing behaviour in the browser, running Docker and the tests locally, and all commits.
 

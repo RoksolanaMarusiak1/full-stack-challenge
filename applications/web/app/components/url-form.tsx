@@ -12,7 +12,7 @@ export function UrlForm({ error }: UrlFormProps) {
 
   return (
     <Form method="post" noValidate className="flex flex-col gap-3">
-      <label htmlFor="url" className="text-sm font-medium">
+      <label htmlFor="url" className="text-sm font-semibold">
         Paste a long URL
       </label>
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -32,7 +32,11 @@ export function UrlForm({ error }: UrlFormProps) {
         </Button>
       </div>
       {error && (
-        <p id="url-error" role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p
+          id="url-error"
+          role="alert"
+          className="rounded-lg border-l-2 border-accent bg-paper px-3 py-2 text-sm text-ink"
+        >
           {error}
         </p>
       )}

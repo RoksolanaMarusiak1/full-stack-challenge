@@ -8,10 +8,10 @@ export function Input({ invalid = false, className = "", ...props }: InputProps)
   return (
     <input
       aria-invalid={invalid || undefined}
-      className={`block w-full rounded-lg border-0 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset dark:bg-gray-900 dark:text-gray-100 ${
+      className={`block w-full rounded-xl border-0 bg-paper px-3.5 py-2.5 font-mono text-sm text-ink ring-1 ring-inset placeholder:text-ink-muted/70 focus:outline-hidden focus:ring-2 focus:ring-inset focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--accent)_18%,transparent)] ${
         invalid
-          ? "ring-red-400 focus:ring-red-500"
-          : "ring-gray-300 focus:ring-indigo-600 dark:ring-gray-700"
+          ? "ring-accent focus:ring-accent-strong"
+          : "ring-line focus:ring-accent"
       } ${className}`}
       {...props}
     />

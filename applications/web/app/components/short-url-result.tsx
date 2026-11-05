@@ -1,39 +1,22 @@
-import { useState } from "react";
-import { Button } from "./ui/button";
-import { Card } from "./ui/card";
+import { CopyButton } from "./copy-button";
 
 export function ShortUrlResult({ shortUrl }: { shortUrl: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(shortUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard can be blocked (insecure context, permissions): the link stays selectable.
-      setCopied(false);
-    }
-  }
-
   return (
-    <Card className="mt-6">
-      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+    <div className="mt-6 rounded-2xl border border-line border-l-4 border-l-accent bg-card p-6 shadow-[0_0_36px_-10px_var(--accent)]">
+      <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink-muted">
         Your short link
       </p>
-      <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <a
           href={shortUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="break-all text-lg font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+          className="break-all font-mono text-lg font-medium text-accent-strong hover:underline"
         >
           {shortUrl}
         </a>
-        <Button variant="secondary" onClick={copy} aria-live="polite">
-          {copied ? "Copied!" : "Copy"}
-        </Button>
+        <CopyButton text={shortUrl} />
       </div>
-    </Card>
+    </div>
   );
 }

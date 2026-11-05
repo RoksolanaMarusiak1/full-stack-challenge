@@ -1,32 +1,44 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router";
+import { ThemeToggle } from "./theme-toggle";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+  `rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
     isActive
-      ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
-      : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+      ? "bg-card text-accent-strong"
+      : "text-ink-soft hover:text-ink"
   }`;
 
-export function Layout({ children }: { children: ReactNode }) {
+export function Layout({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+  // The links table needs more room than the form pages.
+  const width = wide ? "max-w-5xl" : "max-w-3xl";
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-      <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <NavLink to="/" className="text-lg font-bold tracking-tight">
+    <div className="relative min-h-screen bg-paper text-ink">
+      <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="bg-blob bg-blob-a" />
+        <div className="bg-blob bg-blob-b" />
+        <div className="bg-blob bg-blob-c" />
+      </div>
+      <header className="relative border-b border-line">
+        <div className={`mx-auto flex ${width} items-center justify-between px-4 py-4`}>
+          <NavLink to="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
+            <span aria-hidden className="inline-block size-2.5 rounded-full bg-accent shadow-[0_0_10px_2px_var(--accent)]" />
             Shorty
           </NavLink>
-          <nav className="flex gap-1">
-            <NavLink to="/" end className={navLinkClass}>
-              Shorten
-            </NavLink>
-            <NavLink to="/links" className={navLinkClass}>
-              My links
-            </NavLink>
-          </nav>
+          <div className="flex items-center gap-2">
+            <nav className="flex gap-1">
+              <NavLink to="/" end className={navLinkClass}>
+                Shorten
+              </NavLink>
+              <NavLink to="/links" className={navLinkClass}>
+                My links
+              </NavLink>
+            </nav>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-4 py-10">{children}</main>
+      <main className={`relative mx-auto ${width} px-4 py-10 sm:py-14`}>{children}</main>
     </div>
   );
 }

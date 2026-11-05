@@ -35,11 +35,11 @@ export default function Links({ loaderData }: Route.ComponentProps) {
   }, [revalidate]);
 
   return (
-    <Layout>
+    <Layout wide>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My links</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
+          <h1 className="text-4xl font-bold tracking-tight">My links</h1>
+          <p className="mt-3 text-ink-soft">
             All shortened links with click statistics.
           </p>
         </div>

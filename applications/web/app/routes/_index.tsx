@@ -14,6 +14,12 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
+// React Router only sends headers set in `data(..., { headers })` (like Retry-After on a 429)
+// if the route forwards them.
+export function headers({ actionHeaders }: Route.HeadersArgs) {
+  return actionHeaders;
+}
+
 export async function action({ request }: Route.ActionArgs) {
   const limit = createLinkLimiter.check(clientKey(request));
   if (!limit.allowed) {

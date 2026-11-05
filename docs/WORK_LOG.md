@@ -18,6 +18,10 @@ How the work is done: Claude writes the code into my local clone and checks it (
 - Asked why the URL length limit exists and whether it has pitfalls. This exposed a real bug: the length was checked before normalisation, so 2000 Cyrillic letters (about 12,000 characters once percent-encoded) passed the limit. The check now runs on the normalised URL.
 - Asked for the reasoning behind where the rate limiter lives (mechanism in the engine, policy in the web app) to be written down in the log and in the code.
 - Tested the behaviour by hand instead of trusting the type check: invalid URLs return 400, 20 creations pass and the next ones get 429, a different client IP gets its own limit, unknown or malformed codes return 404, and 120 redirects pass before 429.
+- Ran the unit tests locally; the output showed every test running twice (108 instead of 54), which led to limiting Vitest to `src/`.
+- Questioned the order of work (E2E after Docker) and asked to do the E2E tests together with the testing step instead; the time was available, and E2E can run against any running instance.
+- Have Cypress experience, but chose Playwright for this project so that Claude could run and verify the E2E tests itself (Cypress needs its own binary, which cannot be downloaded in Claude's environment); asked how the two differ before deciding.
+- Ran the E2E tests locally in a visible browser to watch what they do, not only to see them pass.
 
 ## Step 1: Baseline and audit
 
@@ -102,6 +106,33 @@ How the work is done: Claude writes the code into my local clone and checks it (
 - Checked: type check passes; ran a table of 20 inputs (valid, empty, `javascript:`, `data:`, `ftp:`, localhost, 127.0.0.1, `2130706433`, 10.x, 192.168.x, 172.16.x, 169.254.169.254, `[::1]`, `.local`, credentials, too long, 172.32.x, uppercase host): all accepted/rejected as intended; limiter blocks the 4th call in a window, is per key and resets after the window.
 - AI usage: Claude proposed the rule set and wrote the code and the checks; I decide which rules are acceptable and review the behaviour in the browser.
 
+## Step 6: Tests (Vitest)
+
+- What I did: added Vitest to the engine (`pnpm test` runs it through Turbo) with 54 unit tests in 5 files next to the code:
+  - `link-service.test.ts`: creates a link with the normalised URL; invalid URL is rejected and nothing is stored; retry on a taken code does not overwrite the existing link; gives up after the maximum attempts (`CodeGenerationError`); other repository errors are not retried; `resolve` returns the URL and counts clicks; unknown code -> `LinkNotFoundError`.
+  - `domain/target-url.test.ts`: table tests for accepted URLs (and normalisation) and for every rejection rule (schemes, credentials, localhost, private/link-local IPv4 and IPv6, decimal IP trick), plus the length rules.
+  - `rate-limiter.test.ts`: limit, retry-after rounding, separate keys, reset after the window, sliding window (no double burst), blocked requests are not counted. Uses a fake clock, no real waiting.
+  - `infrastructure/in-memory-link-repository.test.ts` and `code-generator.test.ts`.
+- Why: the tests target the logic that can silently go wrong (collisions, validation rules, limits) and run in under a second because the service depends on the `LinkRepository` interface, so an in-memory repository replaces the database.
+- How I checked the tests themselves: I deliberately broke the code four ways (retry on every error, off-by-one in the limiter, length measured on raw input, wrong private IP range). Three were caught immediately; the IP range one was not, because only the lower bound (172.16.x) was tested, so I added the upper bound (172.31.x) and the mutation is now caught.
+- Found on the first local run: 108 tests instead of 54. `tsc` (the engine `dev` and `build` scripts) also compiles the test files into `dist/`, and Vitest picked up both copies. Fixed with `vitest.config.ts` (`include: ["src/**/*.test.ts"]`).
+- Trade-offs / skipped: no automated test for `DrizzleLinkRepository` (needs a database; it was verified by hand against a real Postgres: duplicate code, 50 parallel clicks, ordering), and no browser/E2E tests. A repository integration test against Postgres (for example with Testcontainers) is the next step.
+- AI usage: Claude wrote the tests and the mutation check; I run them with `pnpm test`.
+
+## Step 7: End-to-end tests (Playwright)
+
+- What I did: `applications/web/e2e/shortener.spec.ts` + `playwright.config.ts` (`pnpm e2e`). 10 tests drive the real app (browser + HTTP) against a running instance; the base URL defaults to the Docker stack (`:3000`) and `E2E_BASE_URL=http://localhost:5173 pnpm e2e` targets `pnpm dev`.
+  - shorten a URL -> a short link and a Copy button appear;
+  - bad input shows a clear message and no link: empty, no scheme, `javascript:`, localhost, private IP, credentials in the URL;
+  - the short link answers 302 with the right `Location`, and `/links` shows 1 click, then 2 after another visit;
+  - unknown or malformed codes return 404;
+  - link creation is limited per client: 20 requests succeed, the next ones get 429 with a `Retry-After` header.
+- Why Playwright: it only needs a browser, which is easy to run in CI and locally (`npx playwright install chromium` once); I have Cypress experience, but for these scenarios either would do and Playwright can be run and verified in Claude's environment. The tests use a random `X-Forwarded-For` per run, so they do not depend on earlier runs or on manual testing (the app rate-limits per client).
+- Found by the tests: a 429 from the form action had no `Retry-After` header. React Router only sends headers set in `data(..., { headers })` when the route exports `headers()`. Fixed in `_index.tsx`; the redirect route already sent it.
+- Checked: all 10 pass twice in a row against the production build (`pnpm build` + `pnpm start`) with a real Postgres. First check of the fix accidentally ran against the old server process still holding the port; I noticed the `EADDRINUSE` in the log, restarted it and reran.
+- Trade-offs / skipped: tests need a running app and a database (not started by the test command); no check of "data survives a restart" (done by hand with `docker compose restart`); only Chromium.
+- AI usage: Claude wrote the tests and ran them; the failing rate-limit test exposed the missing header.
+
 ## Plan (status)
 
 - [x] Baseline and audit
@@ -110,5 +141,6 @@ How the work is done: Claude writes the code into my local clone and checks it (
 - [x] Postgres + Drizzle, migrations, docker-compose with healthcheck (step 4)
 - [x] Validation (Zod) and abuse prevention (rate limiting) (step 5)
 - [x] Error handling in the action and meaningful messages in the UI (step 5)
-- [ ] Tests (Vitest) for LinkService
+- [x] Tests (Vitest) for LinkService, validation, rate limiter (step 6)
+- [x] End-to-end tests with Playwright (step 7)
 - [ ] Docker verification from scratch, README Docker Setup, CHALLENGE_SUBMISSION.md

@@ -6,6 +6,7 @@ import {
 } from "./domain/errors";
 import type { Link } from "./domain/link";
 import type { LinkRepository } from "./domain/link-repository";
+import { parseTargetUrl } from "./domain/target-url";
 
 export type LinkServiceOptions = {
   /** Injectable so tests can force collisions. */
@@ -29,8 +30,12 @@ export class LinkService {
    * Creates a link with a unique code. We do not "check, then insert":
    * that is racy. We insert and retry when the repository reports a duplicate
    * (backed by a unique constraint in the database).
+   * Throws InvalidUrlError if the URL is not acceptable.
    */
-  async create(url: string): Promise<Link> {
+  async create(rawUrl: string): Promise<Link> {
+    // Validation lives in the service, not only in the UI, so every caller is protected.
+    const url = parseTargetUrl(rawUrl);
+
     for (let attempt = 0; attempt < this.maxCodeAttempts; attempt++) {
       try {
         return await this.repository.create({ code: this.generateCode(), url });

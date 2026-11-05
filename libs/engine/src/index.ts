@@ -5,10 +5,14 @@ export type { LinkRepository } from "./domain/link-repository";
 export {
   CodeAlreadyExistsError,
   CodeGenerationError,
+  InvalidUrlError,
   LinkNotFoundError,
 } from "./domain/errors";
 export { LinkService } from "./link-service";
 export { generateShortCode } from "./code-generator";
+export { parseTargetUrl } from "./domain/target-url";
+export { RateLimiter } from "./rate-limiter";
+export type { RateLimitResult } from "./rate-limiter";
 export { InMemoryLinkRepository } from "./infrastructure/in-memory-link-repository";
 export { DrizzleLinkRepository } from "./infrastructure/drizzle-link-repository";
 

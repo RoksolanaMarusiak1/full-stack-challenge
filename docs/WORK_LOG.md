@@ -6,6 +6,19 @@ Started: 2026-11-05 21:57 (Europe/Warsaw). Time box: ~3-4h.
 
 How the work is done: Claude writes the code into my local clone and checks it (type check, smoke tests). I read the changes and make the git commits myself, one commit per logical step, so the history reflects what I reviewed and understood.
 
+## Where I steered or corrected Claude
+
+- Asked Claude to simplify its first, over-engineered plan; the scope was cut to the essentials (database, safe codes, validation, click counter, UI, a few tests) and the rest became "next steps".
+- Prepared before starting: compared Drizzle with Prisma (which I already know) and chose Drizzle because the challenge encourages it; the main differences for me were the schema written in TypeScript, no code generation step and SQL-like queries.
+- Followed the challenge instruction to fork the repository.
+- Asked for a security scan of the repository (scripts, dependencies, lockfile sources) before running it.
+- Changed the order of work: Claude proposed engine first; I chose to start with the pages and a separate form component.
+- Decided the git history must be mine: I had Claude's early commits undone and now commit each step myself with my own messages, splitting the UI commit from the engine commit so each one builds.
+- Found that click counts on `/links` did not update after opening a short link (it opens in a new tab). This led to revalidating on tab focus plus a Refresh button.
+- Asked why the URL length limit exists and whether it has pitfalls. This exposed a real bug: the length was checked before normalisation, so 2000 Cyrillic letters (about 12,000 characters once percent-encoded) passed the limit. The check now runs on the normalised URL.
+- Asked for the reasoning behind where the rate limiter lives (mechanism in the engine, policy in the web app) to be written down in the log and in the code.
+- Tested the behaviour by hand instead of trusting the type check: invalid URLs return 400, 20 creations pass and the next ones get 429, a different client IP gets its own limit, unknown or malformed codes return 404, and 120 redirects pass before 429.
+
 ## Step 1: Baseline and audit
 
 - What I did: forked the template, cloned it, read through `libs/engine` and `applications/web` before changing anything.
@@ -51,12 +64,15 @@ How the work is done: Claude writes the code into my local clone and checks it (
 - AI usage: Claude proposed and wrote the layering and the retry approach; I tested it in the browser and committed it.
 
 ## Step 4: Postgres + Drizzle
+
 - What I did:
   - `infrastructure/db/schema.ts`: `links` table (`code` is the primary key, `url`, `clicks`, `created_at`, index on `created_at`). `client.ts` creates the pg pool + Drizzle instance.
   - `DrizzleLinkRepository` implements `LinkRepository`; `index.ts` now wires it into `LinkService` (one-line swap, as planned). The in-memory repository stays for tests.
   - SQL migration generated with `drizzle-kit generate` (`libs/engine/drizzle`) and applied with `drizzle-kit migrate` (`pnpm db:migrate`).
   - `docker-compose.yml`: `db` (Postgres 16 with healthcheck) -> `migrate` (one-shot job) -> `web`; data lives in a named volume so it survives restarts. Dockerfile copies the migrations and config into the production image.
   - `/links` revalidates its data when the tab regains focus (short links open in a new tab, so the click counts were stale) and has a Refresh button.
+  - The pg pool has an `error` listener: found while testing the production build that a dropped connection (Postgres restarting) emitted an unhandled `error` event and crashed the whole Node process. Verified that the process now survives a Postgres restart and the next query works.
+  - Also verified the production build (`pnpm build` + `pnpm start`) against a real Postgres: create, redirect (302), invalid URL (400) and click count all work.
   - `.env.example` has `DATABASE_URL`; `vite.config.ts` loads `.env` into `process.env` so server code sees it in dev.
 - Why:
   - Code as primary key: uniqueness is enforced by the database, so the service's retry-on-duplicate is race-free (unique violation `23505` -> `CodeAlreadyExistsError`).
@@ -67,13 +83,32 @@ How the work is done: Claude writes the code into my local clone and checks it (
 - Checked: type check passes; on a real Postgres 16 I applied the migration and ran the repository: duplicate code -> `CodeAlreadyExistsError`, 50 parallel `resolve` calls -> exactly 50 clicks, unknown code -> `LinkNotFoundError`, list is newest first. The Docker setup itself still has to be verified end to end (done in the last step).
 - AI usage: Claude wrote the schema, repository, compose setup and verified them against a temporary Postgres; I run the migration and commit.
 
+## Step 5: Validation, abuse prevention and error handling
+
+- What I did:
+  - `domain/target-url.ts`: Zod schema + `parseTargetUrl()`. Rules: not empty, max 2048 chars measured after normalisation (non-ASCII characters become `%XX`, so 2000 Cyrillic letters would otherwise turn into ~12k stored characters) plus a cheap 8192 limit on the raw input, must parse as a URL, only `http:`/`https:`, no `user:pass@`, no localhost / private / link-local addresses (incl. IPv6 and tricks like `http://2130706433`). Returns the normalised URL that gets stored.
+  - `LinkService.create()` calls it first and throws `InvalidUrlError` with a user-friendly message.
+  - `RateLimiter` (sliding window, in memory, bounded number of keys) in the engine; web uses it in `app/.server/rate-limits.ts`: 20 link creations/min and 120 redirects/min per client.
+  - `_index` action: 400 with the validation message, 429 with `Retry-After`, 500 with a generic message (the real error goes to `console.error`). The form already shows the message under the input and a loading state.
+  - `/s/:code`: codes that cannot exist (not base62, > 16 chars) return 404 without touching the DB; 429 when rate limited.
+- Why:
+  - Validation sits in the service (not only the form), so any caller is protected, and the schema is the single source of the rules.
+  - Blocking `javascript:`/`data:` removes XSS-style abuse; blocking private addresses stops the shortener being used to point at internal services; blocking credentials in URLs limits phishing.
+  - Rate limiting is split on purpose: the mechanism (`RateLimiter`, a sliding window) is plain logic in the engine with an injectable clock, so it is unit-testable without HTTP and reusable; the policy (how many requests, which routes, how a client is identified from `X-Forwarded-For`) lives in the web app (`app/.server/rate-limits.ts`) because "who is the client" and "what happens on 429" are HTTP concerns. The `.server` folder keeps this code out of the browser bundle. This keeps the engine free of request/response details and lets the limits change without touching the logic.
+- Trade-offs / skipped:
+  - The limiter is per-process memory: fine for one instance, would need Redis/Postgres for several.
+  - Client IP comes from `X-Forwarded-For`, which is only trustworthy behind a reverse proxy; without it all clients share one bucket.
+  - No DNS resolution check (a public hostname can still resolve to a private IP), no blocklist of malicious domains, no CAPTCHA. Listed as next steps.
+- Checked: type check passes; ran a table of 20 inputs (valid, empty, `javascript:`, `data:`, `ftp:`, localhost, 127.0.0.1, `2130706433`, 10.x, 192.168.x, 172.16.x, 169.254.169.254, `[::1]`, `.local`, credentials, too long, 172.32.x, uppercase host): all accepted/rejected as intended; limiter blocks the 4th call in a window, is per key and resets after the window.
+- AI usage: Claude proposed the rule set and wrote the code and the checks; I decide which rules are acceptable and review the behaviour in the browser.
+
 ## Plan (status)
 
 - [x] Baseline and audit
 - [x] UI components (step 2)
 - [x] Engine: `LinkRepository` + `LinkService`, collision-safe code generation (step 3)
 - [x] Postgres + Drizzle, migrations, docker-compose with healthcheck (step 4)
-- [ ] Validation (Zod) and abuse prevention (rate limiting)
-- [ ] Error handling in the action and meaningful messages in the UI
+- [x] Validation (Zod) and abuse prevention (rate limiting) (step 5)
+- [x] Error handling in the action and meaningful messages in the UI (step 5)
 - [ ] Tests (Vitest) for LinkService
 - [ ] Docker verification from scratch, README Docker Setup, CHALLENGE_SUBMISSION.md

@@ -20,3 +20,11 @@ export class LinkNotFoundError extends Error {
     this.name = "LinkNotFoundError";
   }
 }
+
+/** The submitted URL is not acceptable. The message is safe to show to the user. */
+export class InvalidUrlError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidUrlError";
+  }
+}

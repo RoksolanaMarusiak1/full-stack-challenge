@@ -4,6 +4,8 @@ Running notes on what was done and why. Used later as the source for the README 
 
 Started: 2026-11-05 21:57 (Europe/Warsaw). Time box: ~3-4h.
 
+Main task finished: 2026-11-06 00:08 (about 2h10m). Everything required by the challenge was done by then: UI, persistence, validation, rate limiting, tests, Docker and README. Whatever I do after this point is extra and is described in a separate "Extra time" section at the end, so the main result and the extras can be told apart.
+
 How the work is done: Claude writes the code into my local clone and checks it (type check, smoke tests). I read the changes and make the git commits myself, one commit per logical step, so the history reflects what I reviewed and understood.
 
 ## Where I steered or corrected Claude
@@ -22,6 +24,7 @@ How the work is done: Claude writes the code into my local clone and checks it (
 - Questioned the order of work (E2E after Docker) and asked to do the E2E tests together with the testing step instead; the time was available, and E2E can run against any running instance.
 - Have Cypress experience, but chose Playwright for this project so that Claude could run and verify the E2E tests itself (Cypress needs its own binary, which cannot be downloaded in Claude's environment); asked how the two differ before deciding.
 - Ran the E2E tests locally in a visible browser to watch what they do, not only to see them pass.
+- Ran `docker compose up --build` and the E2E suite against the Docker stack myself, instead of relying on Claude's run in its own environment.
 
 ## Step 1: Baseline and audit
 
@@ -133,6 +136,14 @@ How the work is done: Claude writes the code into my local clone and checks it (
 - Trade-offs / skipped: tests need a running app and a database (not started by the test command); no check of "data survives a restart" (done by hand with `docker compose restart`); only Chromium.
 - AI usage: Claude wrote the tests and ran them; the failing rate-limit test exposed the missing header.
 
+## Step 8: Docker verification and README
+
+- What I did: ran `docker compose up --build` from scratch and checked the startup order: `db` becomes healthy, the `migrate` job applies the migration and exits with code 0, then `web` starts and listens on `:3000`. Then I ran `pnpm e2e` against that Docker stack and all the tests passed. I also checked persistence: after `docker compose down` (without `-v`) and `docker compose up`, the links and click counts were still there. I rewrote the README: Docker Setup (what starts in which order, data in the `pgdata` volume, `docker compose down -v` to reset), local setup with Postgres, how to run unit and E2E tests, the architecture, the abuse-prevention rules and known limitations.
+- Why: the challenge requires the app to run on Docker and the README Docker Setup to stay accurate, so the final check is the same command a reviewer will run, on a clean build.
+- Noticed: two harmless messages in the logs, `locale: not found` (Alpine image without locales) and the Postgres warning about `trust` authentication (default for the dev container). Neither affects the app. The compose credentials (`shortener`/`shortener`) are for local development only, which the README says.
+- Trade-offs / skipped: the README lists the known limitations instead of hiding them (in-memory rate limiter, no DNS check, trusted `X-Forwarded-For`, no automated test for the Drizzle repository).
+- AI usage: Claude wrote the README draft; I ran the Docker stack and the E2E suite myself and checked the result.
+
 ## Plan (status)
 
 - [x] Baseline and audit
@@ -143,4 +154,5 @@ How the work is done: Claude writes the code into my local clone and checks it (
 - [x] Error handling in the action and meaningful messages in the UI (step 5)
 - [x] Tests (Vitest) for LinkService, validation, rate limiter (step 6)
 - [x] End-to-end tests with Playwright (step 7)
-- [ ] Docker verification from scratch, README Docker Setup, CHALLENGE_SUBMISSION.md
+- [x] Docker verification from scratch, README Docker Setup (step 8)
+- [x] CHALLENGE_SUBMISSION.md
